@@ -29,7 +29,7 @@ import {
 	produceWorkerBundleForWorkerJSDirectory,
 } from "./functions/buildWorker";
 import { validateRoutes } from "./functions/routes-validation";
-import { CLEANUP, CLEANUP_CALLBACKS, getPagesTmpDir } from "./utils";
+import { CLEANUP, CLEANUP_CALLBACKS, debounce, getPagesTmpDir } from "./utils";
 import type { Config } from "../config";
 import type {
 	DurableObjectBindings,
@@ -455,9 +455,19 @@ export const Handler = async (args: PagesDevArguments) => {
 		logger.debug(`Compiling worker to "${scriptPath}"...`);
 
 		const onEnd = () => scriptReadyResolve();
+		const watchedBundleDependencies: Set<string> = new Set();
+
+		// always watch the "/functions" directory
+		const watcher = watch([functionsDirectory], {
+			persistent: true,
+			ignoreInitial: true,
+		});
+
 		try {
 			const buildFn = async () => {
-				await buildFunctions({
+				const crrBundleDependencies = new Set();
+
+				const bundle = await buildFunctions({
 					outfile: scriptPath,
 					functionsDirectory,
 					sourcemap: true,
@@ -469,15 +479,62 @@ export const Handler = async (args: PagesDevArguments) => {
 					routesModule,
 					defineNavigatorUserAgent,
 				});
+
+				for (const dep in bundle.dependencies) {
+					const resolvedDep = resolve(functionsDirectory, dep);
+					/*
+					 * EXCLUDE:
+					 *   - the "/functions" directory because we're already watching it
+					 *   - everything in "./.wrangler", as it's mostly cache and
+					 *     temporary files
+					 *   - any bundle dependencies we are already watching
+					 *   - anything outside of the current working directory, since we
+					 *     are expecting `wrangler pages dev` to be run from the Pages
+					 *     project root folder
+					 */
+					if (
+						!resolvedDep.match(/\/functions\/./) &&
+						!resolvedDep.match(/\.wrangler\/./) &&
+						resolvedDep.match(resolve(process.cwd()))
+					) {
+						crrBundleDependencies.add(resolvedDep);
+
+						if (!watchedBundleDependencies.has(resolvedDep)) {
+							watchedBundleDependencies.add(resolvedDep);
+							watcher.add(resolvedDep);
+						}
+					}
+				}
+
+				for (const module of bundle.modules) {
+					if (module.filePath) {
+						const resolvedDep = resolve(functionsDirectory, module.filePath);
+						crrBundleDependencies.add(resolvedDep);
+
+						if (!watchedBundleDependencies.has(resolvedDep)) {
+							watchedBundleDependencies.add(resolvedDep);
+							watcher.add(resolvedDep);
+						}
+					}
+				}
+
+				/*
+				 *`bundle.dependencies` and `bundle.modules` will always contain the
+				 * latest dependency list of the current bundle. If we are currently
+				 * watching any dependency files not in that list, we should remove
+				 * them, as they are no longer relevant to the compiled Functions.
+				 */
+				watchedBundleDependencies.forEach(async (path) => {
+					if (!crrBundleDependencies.has(path)) {
+						watchedBundleDependencies.delete(path);
+						watcher.unwatch(path);
+					}
+				});
+
 				await metrics.sendMetricsEvent("build pages functions");
 			};
 
-			await buildFn();
-			// If Functions found routes, continue using Functions
-			watch([functionsDirectory], {
-				persistent: true,
-				ignoreInitial: true,
-			}).on("all", async () => {
+			const debouncedBuildFn = debounce(async () => {
 				try {
 					await buildFn();
 				} catch (e) {
@@ -490,9 +547,22 @@ export const Handler = async (args: PagesDevArguments) => {
 							getFunctionsBuildWarning(functionsDirectory, e.message)
 						);
 					} else {
+						// TODO (@Carmen) do we really want to throw for everything
+						// else here?
 						throw e;
 					}
 				}
+			}, 50);
+
+			await buildFn();
+
+			// If Functions found routes, continue using Functions
+			watcher.on("all", async (eventName, path) => {
+				logger.debug(
+					`🌀 [chokidar - "${eventName}"] Changes detected at ${path}.`
+				);
+
+				debouncedBuildFn();
 			});
 		} catch (e) {
 			// If there are no Functions, then Pages will only serve assets.

@@ -349,17 +349,34 @@ export function buildNotifierPlugin(onEnd: () => void): Plugin {
 		name: "wrangler notifier and monitor",
 		setup(pluginBuild) {
 			pluginBuild.onEnd((result) => {
-				if (result.errors.length > 0) {
-					logger.error(
-						`${result.errors.length} error(s) and ${result.warnings.length} warning(s) when compiling Worker.`
-					);
-				} else if (result.warnings.length > 0) {
-					logger.warn(
-						`${result.warnings.length} warning(s) when compiling Worker.`
-					);
+				if (!result.errors.length && !result.warnings.length) {
+					logger.log("✨ Compiled Worker successfully");
 					onEnd();
 				} else {
-					logger.log("✨ Compiled Worker successfully");
+					if (result.errors.length > 0) {
+						const errorMessages = result.errors.reduce(
+							(acc, err) => `${acc}\n` + `▶︎ ${err.text}`,
+							""
+						);
+
+						logger.error(
+							`Got ${result.errors.length} error${result.errors.length > 1 ? "s" : ""} when compiling Worker:\n` +
+								`${errorMessages}`
+						);
+					}
+
+					if (result.warnings.length > 0) {
+						const warningMessages = result.warnings.reduce(
+							(acc, warning) => `${acc}\n` + `▶︎ ${warning.text}`,
+							""
+						);
+
+						logger.warn(
+							`Got ${result.warnings.length} warning${result.warnings.length > 1 ? "s" : ""} when compiling Worker:\n` +
+								`${warningMessages}`
+						);
+					}
+
 					onEnd();
 				}
 			});
