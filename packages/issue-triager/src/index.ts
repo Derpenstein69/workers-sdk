@@ -1,11 +1,16 @@
 import "dotenv/config";
-import { fetchUntriagedItems } from "./github";
+import { fetchProjectId, fetchUntriagedItems } from "./github/github";
 
-fetchUntriagedItems("cloudflare", "workers-sdk")
-	.then((items) => {
+main();
+
+async function main() {
+	try {
+		const projectId = await fetchProjectId("cloudflare", "workers-sdk");
+		const items = await fetchUntriagedItems(projectId);
+
 		console.log(items);
-	})
-	.catch((e) => {
+	} catch (e) {
 		console.error("Error:", e);
 		process.exit(1);
-	});
+	}
+}

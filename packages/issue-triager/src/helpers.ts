@@ -1,4 +1,4 @@
-import { Item, Node, NodeWithContent } from "./types";
+import { Item, Node, NodeWithContent } from "./github/types";
 
 export function isUntriaged(node: NodeWithContent) {
 	return (

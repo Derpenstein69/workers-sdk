@@ -1,16 +1,3 @@
-export type ProjectIdResponse = {
-	data: {
-		organization: {
-			projectsV2: {
-				nodes: {
-					id: string;
-					title: string;
-				}[];
-			};
-		};
-	};
-};
-
 export type Item = {
 	title: string;
 	number: number;
@@ -24,6 +11,19 @@ export type Item = {
 		createdAt: string;
 	}[];
 	status: string;
+};
+
+export type ProjectIdResponse = {
+	data: {
+		organization: {
+			projectsV2: {
+				nodes: {
+					id: string;
+					title: string;
+				}[];
+			};
+		};
+	};
 };
 
 export type IssuesResponse = {
