@@ -1,25 +1,70 @@
 import "dotenv/config";
+import { spinner as cliSpinner } from "@cloudflare/cli/interactive";
+import chalk from "chalk";
+import inquirer from "inquirer";
+import open from "open";
 import { classifyIssue } from "./ai/ai";
-// import { fetchProjectId, fetchUntriagedItems } from "./github/github";
-import { Issue } from "./github/types";
+import { fetchProjectId, fetchUntriagedItems } from "./github/github";
 
 main();
 
 async function main() {
-	try {
-		// const projectId = await fetchProjectId("cloudflare", "workers-sdk");
-		// const issues = await fetchUntriagedItems(projectId);
+	const spinner = cliSpinner();
 
-		// console.log(issues);
-		// const classification = await classifyIssue(issues[0]);
-		const classification = await classifyIssue({
-			title: "bug",
-			body: "this is definitely a bug, and I'm angry about it",
-		} as Issue);
+	spinner.start(chalk.gray("Fetching untriaged items"));
+	const projectId = await fetchProjectId("cloudflare", "workers-sdk");
+	const issues = await fetchUntriagedItems(projectId);
+	spinner.stop(
+		chalk.green(`${issues.length} untriaged issues fetched successfully`)
+	);
 
-		console.log(classification);
-	} catch (e) {
-		console.error("Error:", e);
-		process.exit(1);
+	while (true) {
+		const { selectedIssue } = await inquirer.prompt([
+			{
+				type: "list",
+				name: "selectedIssue",
+				message: 'Select an issue to classify (or "ctrl+c" to quit):',
+				choices: [
+					{ name: "Exit", value: null },
+					...issues.map((issue, index) => ({
+						name: `${index + 1}. ${issue.title}`,
+						value: issue,
+					})),
+				],
+				pageSize: 20,
+			},
+		]);
+
+		spinner.start(chalk.gray("Classifying issue"));
+		const classification = await classifyIssue(selectedIssue);
+
+		if (!classification) {
+			console.log(chalk.red("Could not create classification from issue"));
+			continue;
+		}
+
+		spinner.stop(chalk.green("Issues classified successfully"));
+		console.log(classification, "\n\n");
+
+		const { nextAction } = await inquirer.prompt([
+			{
+				type: "list",
+				name: "nextAction",
+				message: "What would you like to do next?",
+				choices: [
+					{ name: "Open the issue on GitHub", value: "open" },
+					{ name: "Classify another issue", value: "classify" },
+					{ name: "Exit", value: "exit" },
+				],
+			},
+		]);
+
+		if (nextAction === "open") {
+			await open(selectedIssue.url);
+			console.log(chalk.gray("Opening the issue on GitHub..."));
+		} else if (nextAction === "exit") {
+			console.log(chalk.gray("Exiting issue classification."));
+			break;
+		}
 	}
 }

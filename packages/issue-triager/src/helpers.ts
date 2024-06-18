@@ -1,4 +1,4 @@
-import { Item, Node, NodeWithContent } from "./github/types";
+import { Issue, Node, NodeWithContent } from "./github/types";
 
 export function isUntriaged(node: NodeWithContent) {
 	return (
@@ -7,7 +7,7 @@ export function isUntriaged(node: NodeWithContent) {
 	);
 }
 
-export function toFormattedItem(node: NodeWithContent): Item {
+export function toFormattedItem(node: NodeWithContent): Issue {
 	return {
 		title: node.content.title,
 		number: node.content.number,

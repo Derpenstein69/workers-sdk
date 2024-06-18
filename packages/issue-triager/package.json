@@ -12,8 +12,14 @@
 		"extends": "../../package.json"
 	},
 	"dependencies": {
+		"@cloudflare/cli": "workspace:*",
 		"@octokit/graphql": "^8.1.1",
+		"@types/inquirer": "^9.0.7",
+		"chalk": "^5.3.0",
 		"dotenv": "^16.3.1",
-		"esbuild": "0.17.19"
+		"esbuild": "0.17.19",
+		"inquirer": "^9.2.23",
+		"open": "^8.4.0",
+		"ts-dedent": "^2.2.0"
 	}
 }
