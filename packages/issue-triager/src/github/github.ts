@@ -1,13 +1,13 @@
 import { isNodeWithContent, isUntriaged, toFormattedItem } from "../helpers";
-import { IssuesResponse, Item, ProjectIdResponse } from "./types";
+import { Issue, IssuesResponse, ProjectIdResponse } from "./types";
 
 const GITHUB_TOKEN = process.env.GITHUB_API_TOKEN;
 const GRAPHQL_ENDPOINT = "https://api.github.com/graphql";
 
-export async function fetchUntriagedItems(projectId: string): Promise<Item[]> {
+export async function fetchUntriagedItems(projectId: string): Promise<Issue[]> {
 	let cursor: string | null = null;
 	let hasNextPage = true;
-	const allItems: Item[] = [];
+	const allItems: Issue[] = [];
 
 	while (hasNextPage) {
 		const response = await fetchIssues(projectId, cursor);

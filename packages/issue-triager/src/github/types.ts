@@ -1,4 +1,4 @@
-export type Item = {
+export type Issue = {
 	title: string;
 	number: number;
 	url: string;
