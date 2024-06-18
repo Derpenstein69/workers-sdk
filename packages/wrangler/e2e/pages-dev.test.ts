@@ -2,14 +2,10 @@ import { setTimeout } from "node:timers/promises";
 import getPort from "get-port";
 import dedent from "ts-dedent";
 import { fetch } from "undici";
-import { afterEach, beforeEach, describe, expect } from "vitest";
+import { describe, expect } from "vitest";
 import { e2eTest } from "./helpers/e2e-wrangler-test";
 import { fetchText } from "./helpers/fetch-text";
 import { normalizeOutput } from "./helpers/normalize";
-import { killAllWranglerDev } from "./helpers/wrangler";
-
-beforeEach(killAllWranglerDev);
-afterEach(killAllWranglerDev);
 
 describe("pages dev", () => {
 	e2eTest(

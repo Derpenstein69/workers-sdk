@@ -1836,6 +1836,9 @@ importers:
       timeago.js:
         specifier: ^4.0.2
         version: 4.0.2
+      tree-kill:
+        specifier: ^1.2.2
+        version: 1.2.2
       ts-dedent:
         specifier: ^2.2.0
         version: 2.2.0
@@ -16996,13 +16999,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  https-proxy-agent@7.0.2:
-    dependencies:
-      agent-base: 7.1.0(supports-color@9.2.2)
-      debug: 4.3.5(supports-color@9.2.2)
-    transitivePeerDependencies:
-      - supports-color
-
   https-proxy-agent@7.0.2(supports-color@9.2.2):
     dependencies:
       agent-base: 7.1.0(supports-color@9.2.2)
@@ -18602,7 +18598,7 @@ snapshots:
       debug: 4.3.5(supports-color@9.2.2)
       get-uri: 6.0.1
       http-proxy-agent: 7.0.0
-      https-proxy-agent: 7.0.2
+      https-proxy-agent: 7.0.2(supports-color@9.2.2)
       pac-resolver: 7.0.0
       socks-proxy-agent: 8.0.2
     transitivePeerDependencies:
@@ -19044,7 +19040,7 @@ snapshots:
       agent-base: 7.1.0(supports-color@9.2.2)
       debug: 4.3.5(supports-color@9.2.2)
       http-proxy-agent: 7.0.0
-      https-proxy-agent: 7.0.2
+      https-proxy-agent: 7.0.2(supports-color@9.2.2)
       lru-cache: 7.18.3
       pac-proxy-agent: 7.0.1
       proxy-from-env: 1.1.0

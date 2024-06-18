@@ -3,19 +3,43 @@ import events from "node:events";
 import rl from "node:readline";
 import { PassThrough } from "node:stream";
 import { ReadableStream } from "node:stream/web";
+import { setTimeout } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
-import psList from "ps-list";
 import { readUntil } from "./read-until";
 import type { ChildProcess } from "node:child_process";
 
 // Replace all backslashes with forward slashes to ensure that their use
-// in shellac scripts doesn't break.
+// in scripts doesn't break.
 export const WRANGLER = process.env.WRANGLER?.replaceAll("\\", "/") ?? "";
 export const WRANGLER_IMPORT = pathToFileURL(
 	process.env.WRANGLER_IMPORT?.replaceAll("\\", "/") ?? ""
 );
 
-export function runWrangler(
+const DEFAULT_WRANGLER_RUN_TIMEOUT = 50_000;
+
+export async function runWrangler(
+	wranglerCommand: string,
+	options: {
+		cwd?: string;
+		env?: typeof process.env;
+		debug?: boolean;
+		timeout?: number;
+	} = {}
+) {
+	const timeout = options.timeout ?? DEFAULT_WRANGLER_RUN_TIMEOUT;
+	const wranglerProcess = runWranglerLongLived(wranglerCommand, options);
+	return Promise.race([
+		wranglerProcess.finalOutput(),
+		setTimeout(timeout).then(() =>
+			Promise.reject(
+				`Running "${wranglerCommand}" took too long (${timeout}).\nCommand output:` +
+					wranglerProcess.output
+			)
+		),
+	]);
+}
+
+export function runWranglerLongLived(
 	wranglerCommand: string,
 	options: { cwd?: string; env?: typeof process.env; debug?: boolean } = {},
 	// The caller is responsible for cleaning up Wrangler processes. `runWrangler` will register started processes in this Set
@@ -92,39 +116,24 @@ export function runWrangler(
 				resolve(lineBuffer.join("\n"));
 			}
 		},
+		async finalOutput() {
+			await exitPromise;
+			return lineBuffer.join("\n");
+		},
 	};
 }
 
 export async function waitForReady(
-	worker: ReturnType<typeof runWrangler>
+	worker: ReturnType<typeof runWranglerLongLived>
 ): Promise<{ url: string }> {
-	const match = await worker.readUntil(/Ready on (?<url>https?:\/\/.*)/);
+	const match = await worker.readUntil(/Ready on (?<url>https?:\/\/.*)/, 5_000);
 	return match.groups as { url: string };
 }
 
 export async function waitForReload(
-	worker: ReturnType<typeof runWrangler>
+	worker: ReturnType<typeof runWranglerLongLived>
 ): Promise<void> {
 	await worker.readUntil(
 		/Detected changes, restarted server|Reloading local server\.\.\./
 	);
-}
-
-export async function killAllWranglerDev() {
-	// TODO: Figure out why hanging wrangler processes are sometimes left around
-	// In the meantime, let's forcefully kill all `wrangler dev` and `workerd` processes we can find before each test
-	const processes = await psList({ all: false });
-	const wranglerDev = processes.filter(
-		(p) =>
-			(p.cmd?.includes("node") &&
-				p.cmd.includes("wrangler-dist") &&
-				p.cmd.includes("cli.js") &&
-				p.cmd.includes("dev")) ||
-			p.name === "workerd"
-	);
-
-	for (const proc of wranglerDev) {
-		console.log("killing hanging process", proc.name, proc.cmd);
-		process.kill(proc.pid, 9);
-	}
 }

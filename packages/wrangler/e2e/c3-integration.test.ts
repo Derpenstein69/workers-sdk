@@ -1,11 +1,12 @@
+import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import shellac from "shellac";
 import { fetch } from "undici";
-import { beforeAll, describe, expect } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { e2eTest } from "./helpers/e2e-wrangler-test";
 import { generateResourceName } from "./helpers/generate-resource-name";
 import { makeRoot } from "./helpers/setup";
+import { runWrangler } from "./helpers/wrangler";
 
 describe("c3 integration", () => {
 	let workerName: string;
@@ -17,14 +18,12 @@ describe("c3 integration", () => {
 		workerName = generateResourceName("c3");
 
 		const pathToC3 = path.resolve(__dirname, "../../create-cloudflare");
-		const { stdout: version } = await shellac.in(pathToC3)`
-			$ pnpm pack --pack-destination ./pack
-			$ ls pack`;
-
+		execSync("pnpm pack --pack-destination ./pack", { cwd: pathToC3 });
+		const version = execSync("ls pack", { encoding: "utf-8", cwd: pathToC3 });
 		c3Packed = path.join(pathToC3, "pack", version);
 	});
 
-	e2eTest("init project via c3", async ({ run }) => {
+	it("init project via c3", async () => {
 		const env = {
 			...process.env,
 			WRANGLER_C3_COMMAND: `--package ${c3Packed} dlx create-cloudflare`,
@@ -34,7 +33,7 @@ describe("c3 integration", () => {
 			GIT_COMMITTER_EMAIL: "test-user@cloudflare.com",
 		};
 
-		const init = await run(`wrangler init ${workerName} --yes`, {
+		const init = await runWrangler(`wrangler init ${workerName} --yes`, {
 			env,
 			cwd: root,
 		});

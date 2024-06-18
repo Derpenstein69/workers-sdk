@@ -2,9 +2,8 @@ import assert from "node:assert";
 import path from "node:path";
 import dedent from "ts-dedent";
 import { fetch } from "undici";
-import { beforeAll, describe, expect } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { CLOUDFLARE_ACCOUNT_ID } from "./helpers/account-id";
-import { e2eTest } from "./helpers/e2e-wrangler-test";
 import { generateResourceName } from "./helpers/generate-resource-name";
 import { normalizeOutput } from "./helpers/normalize";
 import { retry } from "./helpers/retry";
@@ -14,8 +13,9 @@ import { runWrangler } from "./helpers/wrangler";
 function matchWhoamiEmail(stdout: string): string {
 	return stdout.match(/associated with the email (.+?@.+?)!/)?.[1] as string;
 }
+const TIMEOUT = 50_000;
 
-describe("deployments", () => {
+describe("deployments", { timeout: TIMEOUT }, () => {
 	let root: string;
 	let workerName: string;
 	let workerPath: string;
@@ -33,28 +33,25 @@ describe("deployments", () => {
 				[email]: "person@example.com",
 				[CLOUDFLARE_ACCOUNT_ID]: "CLOUDFLARE_ACCOUNT_ID",
 			});
-	}, 50_000);
+	});
 
-	e2eTest("init worker", async ({ run }) => {
-		const { readUntil } = run(
+	it("init worker", async () => {
+		const output = await runWrangler(
 			`wrangler init --yes --no-delegate-c3 ${workerName}`,
 			{ cwd: root }
 		);
-
-		await readUntil(
-			/To publish your Worker to the Internet, run `npm run deploy`/,
-			// This can be very slow, so give it the same timeout as the test itself
-			120_000
+		expect(output).toContain(
+			"To publish your Worker to the Internet, run `npm run deploy`"
 		);
 	});
 
-	e2eTest("deploy worker", async ({ run }) => {
-		const { readUntil } = run(`wrangler deploy`, { cwd: workerPath });
+	it("deploy worker", async () => {
+		const output = await runWrangler(`wrangler deploy`, { cwd: workerPath });
 
-		const match = await readUntil(
+		const match = output.match(
 			/(?<url>https:\/\/tmp-e2e-.+?\..+?\.workers\.dev)/
 		);
-		assert(match.groups);
+		assert(match?.groups);
 		deployedUrl = match.groups.url;
 
 		const { text } = await retry(
@@ -67,14 +64,16 @@ describe("deployments", () => {
 		expect(text).toMatchInlineSnapshot('"Hello World!"');
 	});
 
-	e2eTest("list 1 deployment", async ({ run }) => {
-		const { readUntil } = run(`wrangler deployments list`, { cwd: workerPath });
+	it("list 1 deployment", async () => {
+		const output = await runWrangler(`wrangler deployments list`, {
+			cwd: workerPath,
+		});
 
-		await readUntil(/Upload from Wrangler 🤠/);
-		await readUntil(/🟩 Active/);
+		expect(output).toContain("Upload from Wrangler 🤠");
+		expect(output).toContain("🟩 Active");
 	});
 
-	e2eTest("modify & deploy worker", async ({ run }) => {
+	it("modify & deploy worker", async () => {
 		await seed(workerPath, {
 			"src/index.ts": dedent`
         export default {
@@ -83,12 +82,12 @@ describe("deployments", () => {
           }
         }`,
 		});
-		const { readUntil } = run(`wrangler deploy`, { cwd: workerPath });
+		const output = await runWrangler(`wrangler deploy`, { cwd: workerPath });
 
-		const match = await readUntil(
+		const match = output.match(
 			/(?<url>https:\/\/tmp-e2e-.+?\..+?\.workers\.dev)/
 		);
-		assert(match.groups);
+		assert(match?.groups);
 		deployedUrl = match.groups.url;
 
 		const { text } = await retry(
@@ -101,8 +100,10 @@ describe("deployments", () => {
 		expect(text).toMatchInlineSnapshot('"Updated Worker!"');
 	});
 
-	e2eTest("list 2 deployments", async ({ run }) => {
-		const dep = await run(`wrangler deployments list`, { cwd: workerPath });
+	it("list 2 deployments", async () => {
+		const dep = await runWrangler(`wrangler deployments list`, {
+			cwd: workerPath,
+		});
 		expect(normalize(dep)).toMatchInlineSnapshot(`
 			"🚧\`wrangler deployments\` is a beta command. Please report any issues to https://github.com/cloudflare/workers-sdk/issues/new/choose
 			Deployment ID: 00000000-0000-0000-0000-000000000000
@@ -120,16 +121,20 @@ describe("deployments", () => {
 		`);
 	});
 
-	e2eTest("rollback", async ({ run }) => {
-		const { readUntil } = run(`wrangler rollback --message "A test message"`, {
-			cwd: workerPath,
-		});
-
-		await readUntil(/Successfully rolled back/);
+	it("rollback", async () => {
+		const output = await runWrangler(
+			`wrangler rollback --message "A test message"`,
+			{
+				cwd: workerPath,
+			}
+		);
+		expect(output).toContain("Successfully rolled back");
 	});
 
-	e2eTest("list deployments", async ({ run }) => {
-		const dep = await run(`wrangler deployments list`, { cwd: workerPath });
+	it("list deployments", async () => {
+		const dep = await runWrangler(`wrangler deployments list`, {
+			cwd: workerPath,
+		});
 		expect(normalize(dep)).toMatchInlineSnapshot(`
 			"🚧\`wrangler deployments\` is a beta command. Please report any issues to https://github.com/cloudflare/workers-sdk/issues/new/choose
 			Deployment ID: 00000000-0000-0000-0000-000000000000
@@ -154,10 +159,10 @@ describe("deployments", () => {
 		`);
 	});
 
-	e2eTest("delete worker", async ({ run }) => {
-		const { readUntil } = run(`wrangler delete`, { cwd: workerPath });
+	it("delete worker", async () => {
+		const output = await runWrangler(`wrangler delete`, { cwd: workerPath });
 
-		await readUntil(/Successfully deleted/);
+		expect(output).toContain("Successfully deleted");
 		const status = await retry(
 			(s) => s === 200 || s === 500,
 			() => fetch(deployedUrl).then((r) => r.status)

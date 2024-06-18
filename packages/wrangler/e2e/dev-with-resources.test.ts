@@ -3,14 +3,10 @@ import events from "node:events";
 import getPort from "get-port";
 import dedent from "ts-dedent";
 import { Agent, fetch } from "undici";
-import { afterEach, beforeEach, describe, expect } from "vitest";
+import { describe, expect } from "vitest";
 import { WebSocket } from "ws";
 import { e2eTest } from "./helpers/e2e-wrangler-test";
 import { generateResourceName } from "./helpers/generate-resource-name";
-import { killAllWranglerDev } from "./helpers/wrangler";
-
-beforeEach(killAllWranglerDev);
-afterEach(killAllWranglerDev);
 
 const RUNTIMES = [
 	{ flags: "", runtime: "local" },
@@ -68,8 +64,8 @@ describe.each(RUNTIMES)("Core: $flags", ({ runtime, flags }) => {
 				expect(text).toContain("Error: 🙈");
 				expect(text).toContain("src/index.ts:7:10");
 			}
-			await worker.readUntil(/Error: 🙈/);
-			await worker.readUntil(/src\/index\.ts:7:10/);
+			await worker.readUntil(/Error: 🙈/, 30_000);
+			await worker.readUntil(/src\/index\.ts:7:10/, 30_000);
 		}
 	);
 
@@ -109,8 +105,8 @@ describe.each(RUNTIMES)("Core: $flags", ({ runtime, flags }) => {
 				expect(text).toContain("Error: 🙈");
 				expect(text).toContain("src/index.ts:6:9");
 			}
-			await worker.readUntil(/Error: 🙈/);
-			await worker.readUntil(/src\/index\.ts:6:9/);
+			await worker.readUntil(/Error: 🙈/, 30_000);
+			await worker.readUntil(/src\/index\.ts:6:9/, 30_000);
 		}
 	);
 

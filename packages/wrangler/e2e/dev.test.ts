@@ -9,10 +9,6 @@ import { e2eTest } from "./helpers/e2e-wrangler-test";
 import { fetchText } from "./helpers/fetch-text";
 import { retry } from "./helpers/retry";
 import { seed as baseSeed, makeRoot } from "./helpers/setup";
-import { killAllWranglerDev } from "./helpers/wrangler";
-
-beforeEach(killAllWranglerDev);
-afterEach(killAllWranglerDev);
 
 e2eTest(
 	"can import URL from 'url' in node_compat mode",
@@ -106,7 +102,7 @@ describe.each([
 	{ cmd: "wrangler dev --remote" },
 	{ cmd: "wrangler dev --x-dev-env" },
 	{ cmd: "wrangler dev --remote --x-dev-env" },
-])("basic python dev: $cmd", ({ cmd }) => {
+])("basic python dev: $cmd", { timeout: 90_000 }, ({ cmd }) => {
 	e2eTest(
 		`can modify entrypoint during ${cmd}`,
 		async ({ run, seed, waitForReady, waitForReload }) => {

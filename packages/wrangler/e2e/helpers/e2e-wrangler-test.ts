@@ -1,9 +1,10 @@
 import assert from "node:assert";
 import crypto from "node:crypto";
+import kill from "tree-kill";
 import { test } from "vitest";
 import { generateResourceName } from "./generate-resource-name";
 import { makeRoot, seed } from "./setup";
-import { runWrangler, waitForReady, waitForReload } from "./wrangler";
+import { runWranglerLongLived, waitForReady, waitForReload } from "./wrangler";
 import type { ChildProcess } from "node:child_process";
 
 interface TestContext {
@@ -11,8 +12,8 @@ interface TestContext {
 	seed(files: Record<string, string | Uint8Array>): Promise<void>;
 	run(
 		cmd: string,
-		options?: Partial<Parameters<typeof runWrangler>[1]>
-	): ReturnType<typeof runWrangler>;
+		options?: Partial<Parameters<typeof runWranglerLongLived>[1]>
+	): ReturnType<typeof runWranglerLongLived>;
 	r2: (isLocal: boolean) => Promise<string>;
 	kv: (isLocal: boolean) => Promise<string>;
 	d1: (isLocal: boolean) => Promise<{ id: string; name: string }>;
@@ -34,21 +35,35 @@ export const e2eTest = test.extend<TestContext>({
 	},
 	async run({ tmpPath }, use) {
 		const cleanupWrangler = new Set<ChildProcess>();
-		await use(
-			(
-				cmd: string,
-				{
-					debug = false,
-					env = process.env,
-					cwd,
-				}: Partial<Parameters<typeof runWrangler>[1]> = {}
-			) =>
-				runWrangler(cmd, { cwd: cwd ?? tmpPath, debug, env }, cleanupWrangler)
-		);
-		for (const wrangler of cleanupWrangler) {
-			wrangler.kill();
+		try {
+			await use(
+				(
+					cmd: string,
+					{
+						debug = false,
+						env = process.env,
+						cwd,
+					}: Partial<Parameters<typeof runWranglerLongLived>[1]> = {}
+				) =>
+					runWranglerLongLived(
+						cmd,
+						{ cwd: cwd ?? tmpPath, debug, env },
+						cleanupWrangler
+					)
+			);
+		} finally {
+			for (const wrangler of cleanupWrangler) {
+				assert(wrangler.pid);
+				// This library is needed to ensure all descendent processes are also killed,
+				// plus it works on Windows!
+				kill(wrangler.pid, (e) => {
+					if (e) {
+						console.error("Failed to kill wrangler process", wrangler.pid, e);
+					}
+				});
+			}
+			cleanupWrangler.clear();
 		}
-		cleanupWrangler.clear();
 	},
 	async kv({ run }, use) {
 		const created = new Set<string>();
