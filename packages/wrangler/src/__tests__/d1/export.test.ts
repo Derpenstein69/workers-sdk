@@ -22,12 +22,17 @@ describe("execute", () => {
 		);
 	});
 
-	it("should reject --local mode (for now)", async () => {
-		await expect(
-			runWrangler("d1 export db --local --output /tmp/test.sql")
-		).rejects.toThrowError(
-			`Local imports/exports will be coming in a future version of Wrangler.`
-		);
+	it("should handle local", async () => {
+		setIsTTY(false);
+		writeWranglerToml({
+			d1_databases: [
+				{ binding: "DATABASE", database_name: "db", database_id: "xxxx" },
+			],
+		});
+
+		const mockSqlContent = "PRAGMA defer_foreign_keys=TRUE;";
+		await runWrangler("d1 export db --local --output /tmp/test-local.sql");
+		expect(fs.readFileSync("/tmp/test-local.sql", "utf8")).toBe(mockSqlContent);
 	});
 
 	it("should handle remote", async () => {
@@ -102,7 +107,9 @@ describe("execute", () => {
 			})
 		);
 
-		await runWrangler("d1 export db --remote --output /tmp/test.sql");
-		expect(fs.readFileSync("/tmp/test.sql", "utf8")).toBe(mockSqlContent);
+		await runWrangler("d1 export db --remote --output /tmp/test-remote.sql");
+		expect(fs.readFileSync("/tmp/test-remote.sql", "utf8")).toBe(
+			mockSqlContent
+		);
 	});
 });
