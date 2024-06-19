@@ -282,11 +282,17 @@ export const secret = (secretYargs: CommonYargsArgv) => {
 			"list",
 			"List all secrets for a Worker",
 			(yargs) => {
-				return yargs.option("name", {
-					describe: "Name of the Worker",
-					type: "string",
-					requiresArg: true,
-				});
+				return yargs
+					.option("name", {
+						describe: "Name of the Worker",
+						type: "string",
+						requiresArg: true,
+					})
+					.option("pretty", {
+						describe: "Pretty print the output",
+						type: "boolean",
+						default: false,
+					});
 			},
 			async (args) => {
 				const config = readConfig(args.config, args);
@@ -305,7 +311,17 @@ export const secret = (secretYargs: CommonYargsArgv) => {
 						? `/accounts/${accountId}/workers/scripts/${scriptName}/secrets`
 						: `/accounts/${accountId}/workers/services/${scriptName}/environments/${args.env}/secrets`;
 
-				logger.log(JSON.stringify(await fetchResult(url), null, "  "));
+				const secrets =
+					await fetchResult<{ name: string; type: string }[]>(url);
+
+				if (args.pretty) {
+					for (const workerSecret of secrets) {
+						logger.log(`Secret Name: ${workerSecret.name}\n`);
+					}
+				} else {
+					logger.log(JSON.stringify(secrets, null, "  "));
+				}
+
 				await metrics.sendMetricsEvent("list encrypted variables", {
 					sendMetrics: config.send_metrics,
 				});
@@ -323,7 +339,7 @@ export const secret = (secretYargs: CommonYargsArgv) => {
  * Remove trailing white space from inputs.
  * Matching Wrangler legacy behavior with handling inputs
  */
-function trimTrailingWhitespace(str: string) {
+export function trimTrailingWhitespace(str: string) {
 	return str.trimEnd();
 }
 
@@ -333,7 +349,7 @@ function trimTrailingWhitespace(str: string) {
  * This function can be used to grab the incoming stream of data from, say,
  * piping the output of another process into the wrangler process.
  */
-function readFromStdin(): Promise<string> {
+export function readFromStdin(): Promise<string> {
 	return new Promise((resolve, reject) => {
 		const stdin = process.stdin;
 		const chunks: string[] = [];
@@ -526,7 +542,7 @@ export const secretBulkHandler = async (secretBulkArgs: SecretBulkArgs) => {
 	}
 };
 
-function validateJSONFileSecrets(
+export function validateJSONFileSecrets(
 	content: unknown,
 	jsonFilePath: string
 ): asserts content is Record<string, string> {
