@@ -1,5 +1,15 @@
 # wrangler
 
+## 3.61.1
+
+### Patch Changes
+
+- [#6080](https://github.com/cloudflare/workers-sdk/pull/6080) [`e2972cf`](https://github.com/cloudflare/workers-sdk/commit/e2972cf2ce785f5d56b1476e30102e05febba320) Thanks [@threepointone](https://github.com/threepointone)! - chore: run eslint (with react config) on workers-playground/wrangler
+
+  This enables eslint (with our react config) for the workers-playground project. Additionally, this enables the react-jsx condition in relevant tsconfig/eslint config, letting us write jsx without having React in scope.
+
+- [#5214](https://github.com/cloudflare/workers-sdk/pull/5214) [`05c5607`](https://github.com/cloudflare/workers-sdk/commit/05c56073b4e8c71ab6e0b287adddddc00d763170) Thanks [@penalosa](https://github.com/penalosa)! - feat: Experimental file based service discovery when running multiple Wrangler instances locally. To try it out, make sure all your local Wrangler instances are running with the `--x-registry` flag.
+
 ## 3.61.0
 
 ### Minor Changes
