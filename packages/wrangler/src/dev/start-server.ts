@@ -135,6 +135,9 @@ export async function startDevServer(
 			format: props.entry.format,
 			moduleRoot: props.entry.moduleRoot,
 		},
+		legacy: {
+			enablePagesAssetsServiceBinding: props.enablePagesAssetsServiceBinding,
+		},
 	};
 
 	// temp: fake these events by calling the handler directly

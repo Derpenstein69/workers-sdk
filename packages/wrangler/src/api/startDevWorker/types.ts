@@ -28,6 +28,7 @@ import type {
 import type { WorkerDefinition } from "../../dev-registry";
 import type { CfAccount } from "../../dev/create-worker-preview";
 import type { EsbuildBundle } from "../../dev/use-esbuild";
+import type { EnablePagesAssetsServiceBindingOptions } from "../../miniflare-cli/types";
 import type { ConfigController } from "./ConfigController";
 import type { DispatchFetch, Json, Request, Response } from "miniflare";
 import type * as undici from "undici";
@@ -151,6 +152,7 @@ export interface StartDevWorkerOptions {
 		site?: Config["site"];
 		assets?: Config["assets"];
 		enableServiceEnvironments?: boolean;
+		enablePagesAssetsServiceBinding?: EnablePagesAssetsServiceBindingOptions;
 	};
 	unsafe?: Omit<CfUnsafe, "bindings">;
 }
