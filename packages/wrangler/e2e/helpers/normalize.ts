@@ -2,7 +2,7 @@ import stripAnsi from "strip-ansi";
 
 export function normalizeOutput(
 	stdout: string,
-	substitutions?: Record<string, string>
+	substitutions?: Record<string, string> | Map<string | RegExp, string>
 ): string {
 	const functions = [
 		removeVersionHeader,
@@ -28,7 +28,11 @@ export function normalizeOutput(
 		stdout = f(stdout);
 	}
 	if (substitutions) {
-		for (const [from, to] of Object.entries(substitutions)) {
+		const entries =
+			substitutions instanceof Map
+				? substitutions.entries()
+				: Object.entries(substitutions);
+		for (const [from, to] of entries) {
 			stdout = stdout.replaceAll(from, to);
 		}
 	}
