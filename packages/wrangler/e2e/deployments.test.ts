@@ -10,39 +10,47 @@ import { retry } from "./helpers/retry";
 import { makeRoot, seed } from "./helpers/setup";
 import { runWrangler } from "./helpers/wrangler";
 
-function matchWhoamiEmail(stdout: string): string {
-	return stdout.match(/associated with the email (.+?@.+?)!/)?.[1] as string;
-}
 const TIMEOUT = 50_000;
 
 describe("deployments", { timeout: TIMEOUT }, () => {
-	let root: string;
 	let workerName: string;
 	let workerPath: string;
 	let normalize: (str: string) => string;
 	let deployedUrl: string;
 
 	beforeAll(async () => {
-		root = await makeRoot();
-
+		const root = await makeRoot();
 		workerName = generateResourceName();
 		workerPath = path.join(root, workerName);
-		const email = matchWhoamiEmail(await runWrangler(`wrangler whoami`));
 		normalize = (str) =>
-			normalizeOutput(str, {
-				[email]: "person@example.com",
-				[CLOUDFLARE_ACCOUNT_ID]: "CLOUDFLARE_ACCOUNT_ID",
-			});
-	});
+			normalizeOutput(
+				str,
+				new Map<string | RegExp, string>([
+					[CLOUDFLARE_ACCOUNT_ID, "CLOUDFLARE_ACCOUNT_ID"],
+					[/^Author:(\s+).+@.+$/gm, "Author:$1person@example.com"],
+				])
+			);
 
-	it("init worker", async () => {
-		const output = await runWrangler(
-			`wrangler init --yes --no-delegate-c3 ${workerName}`,
-			{ cwd: root }
-		);
-		expect(output).toContain(
-			"To publish your Worker to the Internet, run `npm run deploy`"
-		);
+		await seed(workerPath, {
+			"wrangler.toml": dedent`
+						name = "${workerName}"
+						main = "src/index.ts"
+						compatibility_date = "2023-01-01"
+				`,
+			"src/index.ts": dedent`
+						export default {
+							fetch(request) {
+								return new Response("Hello World!")
+							}
+						}`,
+			"package.json": dedent`
+						{
+							"name": "${workerName}",
+							"version": "0.0.0",
+							"private": true
+						}
+						`,
+		});
 	});
 
 	it("deploy worker", async () => {

@@ -9,9 +9,6 @@ import { runWrangler } from "./helpers/wrangler";
 
 chai.config.truncateThreshold = 1e6;
 
-function matchWhoamiEmail(stdout: string): string {
-	return stdout.match(/associated with the email (.+?@.+?)!/)?.[1] as string;
-}
 function matchVersionId(stdout: string): string {
 	return stdout.match(/Version ID:\s+([a-f\d-]+)/)?.[1] as string;
 }
@@ -22,7 +19,6 @@ function countOccurrences(stdout: string, substring: string) {
 const TIMEOUT = 50_000;
 
 describe("versions deploy", { timeout: TIMEOUT }, () => {
-	let root: string;
 	let workerName: string;
 	let workerPath: string;
 	let normalize: (str: string) => string;
@@ -31,33 +27,44 @@ describe("versions deploy", { timeout: TIMEOUT }, () => {
 	let versionId2: string;
 
 	beforeAll(async () => {
-		root = await makeRoot();
+		const root = await makeRoot();
 		workerName = `tmp-e2e-wrangler-${crypto.randomBytes(4).toString("hex")}`;
 		workerPath = path.join(root, workerName);
-		const email = matchWhoamiEmail(
-			await runWrangler("wrangler whoami", { cwd: root })
-		);
 		normalize = (str) =>
-			normalizeOutput(str, {
-				[workerName]: "tmp-e2e-wrangler",
-				[email]: "person@example.com",
-				[CLOUDFLARE_ACCOUNT_ID]: "CLOUDFLARE_ACCOUNT_ID",
-			});
+			normalizeOutput(
+				str,
+				new Map<string | RegExp, string>([
+					[workerName, "tmp-e2e-wrangler"],
+					[CLOUDFLARE_ACCOUNT_ID, "CLOUDFLARE_ACCOUNT_ID"],
+					[/^Author:(\s+).+@.+$/gm, "Author:$1person@example.com"],
+				])
+			);
+
+		await seed(workerPath, {
+			"wrangler.toml": dedent`
+							name = "${workerName}"
+							main = "src/index.ts"
+							compatibility_date = "2023-01-01"
+					`,
+			"src/index.ts": dedent`
+							export default {
+								fetch(request) {
+									return new Response("Hello World!")
+								}
+							}`,
+			"package.json": dedent`
+							{
+								"name": "${workerName}",
+								"version": "0.0.0",
+								"private": true
+							}
+							`,
+		});
 	});
 
-	it("init worker", async () => {
-		const output = await runWrangler(
-			`wrangler init ${workerName} --yes --no-delegate-c3`,
-			{ cwd: root }
-		);
-
-		expect(normalize(output)).toContain(
-			"To publish your Worker to the Internet, run `npm run deploy`"
-		);
-
+	it("deploy worker", async () => {
 		// TEMP: regular deploy needed for the first time to *create* the worker (will create 1 extra version + deployment in snapshots below)
 		const deploy = await runWrangler("wrangler deploy", { cwd: workerPath });
-
 		versionId0 = matchVersionId(deploy);
 	});
 
